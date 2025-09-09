@@ -117,7 +117,7 @@ app.get('/dashboard-data', async (req, res) => {
        a.CLI_RAZ as CLI_RAZ, a.CLI_FAN as CLI_FAN, a.CLI_TEL as CLI_TEL, b.CLI_CID as CLI_CID, b.CLI_UF as CLI_UF,
        a.PED_STA, d.TBP_DES, g.IPE_QTD, g.IPE_PRC, g.IPE_VLD, g.IPE_VTL, e.PRC_COD, e.PRC_DES, e.PRC_BAR,
        gr.GRP_DES, c.EMP_RAZ, c.EMP_FAN, c.EMP_CGC, c.EMP_IE, c.EMP_END, c.EMP_BAI, c.EMP_CID, c.EMP_UF,
-       c.EMP_CEP, c.EMP_TEL, c.EMP_FAX, c.EMP_EML
+       c.EMP_CEP, c.EMP_TEL, c.EMP_FAX, c.EMP_NMR
       FROM cad_ped a
       LEFT JOIN cad_cli b ON b.CLI_COD = a.CLI_COD
       LEFT JOIN cad_fun j ON j.FUN_COD = a.FUN_COD  
@@ -128,7 +128,7 @@ app.get('/dashboard-data', async (req, res) => {
       LEFT JOIN cad_cdp f ON f.CDP_COD = a.CDP_COD
       LEFT JOIN cad_tbp d ON d.TBP_COD = a.TBP_COD
       LEFT JOIN cad_grp gr ON gr.GRP_COD = e.GRP_COD
-      LEFT JOIN cad_tpp TTP ON TTP.TTP_COD = a.TTP_COD -- Tabela corrigida de cad_ttp para cad_tpp
+      LEFT JOIN cad_tpp TTP ON TTP.TTP_COD = a.TTP_COD
       WHERE a.PED_DTP >= DATEADD(DAY, -30, GETDATE())
       ORDER BY a.PED_DTP DESC
     `);
