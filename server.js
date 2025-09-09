@@ -1,4 +1,4 @@
-// server.js — LEME-ME API
+// server.js — LEME-ME API (VERSÃO FINAL COM TRATAMENTO DE ERRO)
 const express = require('express');
 const sql = require('mssql');
 const cors = require('cors');
@@ -131,12 +131,10 @@ app.get('/dashboard-data', async (req, res) => {
       SELECT * FROM #TempPivot;
     `);
 
-    // A resposta correta deve ser o 'recordset' do resultado
     res.json({ recordset: result.recordset });
 
   } catch (err) {
     console.error('SQL Error:', err);
-    // Envia o erro real do SQL como resposta JSON, em vez de quebrar o servidor
     res.status(500).json({
       error: 'Falha ao executar a query no banco de dados.',
       details: err.message
@@ -144,8 +142,7 @@ app.get('/dashboard-data', async (req, res) => {
   }
 });
 
-// Iniciar o servidor e tentar conectar ao DB
 app.listen(PORT, HOST, async () => {
   console.log(`🚀 API LEME-ME rodando em http://${HOST}:${PORT}`);
-  await connectWithRetry(); // Tenta conectar ao DB ao iniciar
+  await connectWithRetry();
 });
