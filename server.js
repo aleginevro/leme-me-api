@@ -115,8 +115,8 @@ app.get('/dashboard-data', async (req, res) => {
        a.PED_LCS, a.PED_ORI, a.PED_QTI, h.SUP, j.NOME, f.CDP_DES, d.TBP_DES, g.GRP_DES, e.PRO_COD, a.PED_VLT, a.PED_VLD,
        ISNULL(NULLIF(TTP.TPP_DES,''),'SEM TIPO') AS TPP_DES,
        a.CLI_RAZ as CLI_RAZ, a.CLI_FAN as CLI_FAN, a.CLI_TEL as CLI_TEL, b.CLI_CID as CLI_CID, b.CLI_UF as CLI_UF,
-       a.PED_STA, d.TBP_DES, g.IPE_QTD, g.IPE_PRC, g.IPE_VLD, g.IPE_VTL, e.PRC_COD, e.PRC_DES, e.PRC_BAR, e.UNI_COD,
-       gr.GRP_DES, un.UNI_DES, c.EMP_RAZ, c.EMP_FAN, c.EMP_CGC, c.EMP_IE, c.EMP_END, c.EMP_BAI, c.EMP_CID, c.EMP_UF,
+       a.PED_STA, d.TBP_DES, g.IPE_QTD, g.IPE_PRC, g.IPE_VLD, g.IPE_VTL, e.PRC_COD, e.PRC_DES, e.PRC_BAR,
+       gr.GRP_DES, c.EMP_RAZ, c.EMP_FAN, c.EMP_CGC, c.EMP_IE, c.EMP_END, c.EMP_BAI, c.EMP_CID, c.EMP_UF,
        c.EMP_CEP, c.EMP_TEL, c.EMP_FAX, c.EMP_EML
       FROM cad_ped a
       LEFT JOIN cad_cli b ON b.CLI_COD = a.CLI_COD
@@ -128,7 +128,6 @@ app.get('/dashboard-data', async (req, res) => {
       LEFT JOIN cad_cdp f ON f.CDP_COD = a.CDP_COD
       LEFT JOIN cad_tbp d ON d.TBP_COD = a.TBP_COD
       LEFT JOIN cad_grp gr ON gr.GRP_COD = e.GRP_COD
-      LEFT JOIN cad_uni un ON un.UNI_COD = e.UNI_COD
       LEFT JOIN cad_ttp TTP ON TTP.TTP_COD = a.TTP_COD
       WHERE a.PED_DTP >= DATEADD(DAY, -30, GETDATE())
       ORDER BY a.PED_DTP DESC
