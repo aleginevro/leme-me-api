@@ -68,6 +68,59 @@ app.get('/status', async (req, res) => {
   }
 });
 
+// NOVO ENDPOINT PARA TESTAR QUAIS TABELAS EXISTEM
+app.get('/test-tables', async (req, res) => {
+  try {
+    const currentPool = await getPool();
+    if (!currentPool || !currentPool.connected) {
+      return res.status(503).json({ error: 'Serviço de banco de dados indisponível.' });
+    }
+
+    const request = currentPool.request();
+    const result = await request.query(`
+      SELECT TABLE_SCHEMA, TABLE_NAME 
+      FROM INFORMATION_SCHEMA.TABLES 
+      WHERE TABLE_TYPE = 'BASE TABLE'
+      ORDER BY TABLE_SCHEMA, TABLE_NAME
+    `);
+
+    res.json({ tabelas: result.recordset });
+  } catch (err) {
+    console.error('Erro ao listar tabelas:', err);
+    res.status(500).json({ 
+      error: 'Falha ao listar tabelas do banco de dados.',
+      details: err.message 
+    });
+  }
+});
+
+// NOVO ENDPOINT SIMPLIFICADO PARA TESTAR DADOS
+app.get('/dashboard-data-simple', async (req, res) => {
+  try {
+    const currentPool = await getPool();
+    if (!currentPool || !currentPool.connected) {
+      return res.status(503).json({ error: 'Serviço de banco de dados indisponível.' });
+    }
+
+    const request = currentPool.request();
+    // Query muito simples para começar
+    const result = await request.query(`
+      SELECT TOP 10 * 
+      FROM INFORMATION_SCHEMA.TABLES 
+      WHERE TABLE_TYPE = 'BASE TABLE'
+    `);
+
+    res.json({ recordset: result.recordset, message: 'Teste básico funcionando' });
+  } catch (err) {
+    console.error('Erro na query simples:', err);
+    res.status(500).json({ 
+      error: 'Falha ao executar query simples.',
+      details: err.message 
+    });
+  }
+});
+
+
 // ENDPOINT CORRIGIDO PARA DADOS DO DASHBOARD
 app.get('/dashboard-data', async (req, res) => {
   try {
