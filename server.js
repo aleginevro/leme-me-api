@@ -68,60 +68,7 @@ app.get('/status', async (req, res) => {
   }
 });
 
-// NOVO ENDPOINT PARA TESTAR QUAIS TABELAS EXISTEM
-app.get('/test-tables', async (req, res) => {
-  try {
-    const currentPool = await getPool();
-    if (!currentPool || !currentPool.connected) {
-      return res.status(503).json({ error: 'Serviço de banco de dados indisponível.' });
-    }
-
-    const request = currentPool.request();
-    const result = await request.query(`
-      SELECT TABLE_SCHEMA, TABLE_NAME 
-      FROM INFORMATION_SCHEMA.TABLES 
-      WHERE TABLE_TYPE = 'BASE TABLE'
-      ORDER BY TABLE_SCHEMA, TABLE_NAME
-    `);
-
-    res.json({ tabelas: result.recordset });
-  } catch (err) {
-    console.error('Erro ao listar tabelas:', err);
-    res.status(500).json({ 
-      error: 'Falha ao listar tabelas do banco de dados.',
-      details: err.message 
-    });
-  }
-});
-
-// NOVO ENDPOINT SIMPLIFICADO PARA TESTAR DADOS
-app.get('/dashboard-data-simple', async (req, res) => {
-  try {
-    const currentPool = await getPool();
-    if (!currentPool || !currentPool.connected) {
-      return res.status(503).json({ error: 'Serviço de banco de dados indisponível.' });
-    }
-
-    const request = currentPool.request();
-    // Query muito simples para começar
-    const result = await request.query(`
-      SELECT TOP 10 * 
-      FROM INFORMATION_SCHEMA.TABLES 
-      WHERE TABLE_TYPE = 'BASE TABLE'
-    `);
-
-    res.json({ recordset: result.recordset, message: 'Teste básico funcionando' });
-  } catch (err) {
-    console.error('Erro na query simples:', err);
-    res.status(500).json({ 
-      error: 'Falha ao executar query simples.',
-      details: err.message 
-    });
-  }
-});
-
-
-// ENDPOINT CORRIGIDO PARA DADOS DO DASHBOARD
+// ENDPOINT PRINCIPAL DO DASHBOARD COM TESTE DE FUNÇÕES
 app.get('/dashboard-data', async (req, res) => {
   try {
     const currentPool = await getPool();
@@ -165,37 +112,88 @@ app.get('/dashboard-data', async (req, res) => {
        CASE g.IPE_TPV
           WHEN 1 THEN 'Venda' WHEN 2 THEN 'Bonificação' WHEN 3 THEN 'Troca/Devolução' WHEN 4 THEN 'Consignado'
        END as IPE_TPV_DES,
-       a.PED_LCS, a.PED_ORI, a.PED_QTI, h.SUP, j.NOME, f.CDP_DES, d.TBP_DES, g.GRP_DES, e.PRO_COD, a.PED_VLT, a.PED_VLD,
-       ISNULL(NULLIF(TTP.TTP_DES, ''), 'NÃO INFORMADO') AS TTP_DES, ISNULL(CLI.CLI_KIN, 'NÃO') AS CLI_KIN
-      INTO #TempPivot
-      FROM PED a
-      LEFT JOIN CLI b ON a.CLI_COD = b.CLI_COD AND a.EMP_COD = b.EMP_COD
-      LEFT JOIN CDP f ON f.CDP_COD = a.CDP_COD AND f.EMP_COD = a.EMP_COD
-      LEFT JOIN TBP d ON d.TBP_COD = a.TBP_COD
-      INNER JOIN IPE g ON g.PED_COD = a.PED_COD AND g.EMP_COD = a.EMP_COD
-      LEFT JOIN PRO e ON e.PRO_COD = g.PRO_COD AND e.EMP_COD = g.EMP_COD
-      LEFT JOIN VENDEDOR j ON j.CODIGO = a.FUN_COD
-      LEFT JOIN SUPERVISOR h ON h.CODIGO = j.SUPERVISOR
-      LEFT JOIN TTP TTP ON A.TTP_COD = TTP.TTP_COD
-      LEFT JOIN CLI CLI ON A.CLI_COD = CLI.CLI_COD
-      WHERE CONVERT(date,a.PED_DTP) >= DATEADD(day, -30, GETDATE())
-      AND a.PED_REV NOT IN (2, 5, 3) AND a.PED_STA <> 'CNC';
-
-      SELECT * FROM #TempPivot;
+       a.PED_LCS, a.PED_ORI, a.PED_QTI, h.SUP, j.NOME, f.CDP_DES, d.TBP_DES, i.GRP_DES, e.PRO_COD, a.PED_VLT, a.PED_VLD,
+       ISNULL(NULLIF(TTP.TTP_DES, ''), 'Não Informado') as TTP_DES,
+       -- REMOVIDAS TEMPORARIAMENTE AS CHAMADAS PARA FUNÇÕES dbo.formatarCPF e dbo.returnRotas
+       -- CASE b.CLI_TPP WHEN 'F' THEN dbo.formatarCPF(b.CLI_DOC) ELSE dbo.formatarCNPJ(b.CLI_DOC) END as [DOC]
+       b.CLI_DOC as [DOC], -- Usando o campo raw
+       -- dbo.returnRotas(b.CLI_COD) as [ROTAS]
+       NULL as [ROTAS], -- Retornando NULL temporariamente
+       b.CLI_KIN, b.CLI_QIK,
+       CASE WHEN b.CLI_TIK = 99 THEN 'N/A'
+            WHEN b.CLI_TIK = 4 THEN 'Introdução Consignado'
+            WHEN b.CLI_TIK = 8 THEN 'Introdução Venda'
+       END as CLI_TIK_DES
+       into #TempPivot
+       FROM cad_ped a WITH (NOLOCK)
+            JOIN cad_cli b WITH (NOLOCK) on b.CLI_COD=a.CLI_COD
+       left JOIN cad_fun c WITH (NOLOCK) on c.FUN_COD=ISNULL(a.FUN_COD,b.FUN_COD)
+       left JOIN cad_trp d WITH (NOLOCK) on d.TRP_COD=a.TRP_COD
+       left JOIN cad_emp f WITH (NOLOCK) on f.EMP_COD=a.EMP_COD -- Corrigido de 'e' para 'f' para evitar conflito com alias 'e' mais abaixo
+            JOIN cad_ipe g WITH (NOLOCK) on g.PED_COD = a.PED_COD
+       left JOIN cad_prc h WITH (NOLOCK) on h.PRC_COD = g.PRC_COD
+       left JOIN cad_grp i WITH (NOLOCK) on i.GRP_COD = h.GRP_COD
+       left JOIN cad_uni j WITH (NOLOCK) on j.UNI_COD = g.UNI_COD
+       LEFT JOIN cad_tbp TTP ON TTP.TBP_COD = a.TBP_COD -- Adicionado TTP para resolver TTP.TTP_DES
+       WHERE  a.PED_STA not in ('CNC','PRO')  and  CONVERT(varchar,a.PED_DTP,112) >= '20250101'
+       
+       DECLARE @TOTALDIAS int
+       SET @TOTALDIAS = (select count(distinct PED_DTP) from #TempPivot where RIGHT(CONVERT(VARCHAR(10), PED_DTP, 105), 7) = RIGHT(CONVERT(VARCHAR(10), GetDate(), 105), 7))
+       
+       	;With tabela3 AS
+       	(
+       		select CASE WHEN sum(POSSUIVALOR) > 0 THEN 1
+        										  ELSE 0
+       									  END as POSSUIVALOR
+       			   ,FUN_NOM
+       			   ,FUN_COD
+       			   ,sum(IPE_VTL) as IPE_VTL
+       			   ,PED_DTP
+       		  from #TempPivot
+       		 where MESANOATUAL = 1
+       		 group by PED_DTP,FUN_COD,FUN_NOM
+       	)
+       	select sum(POSSUIVALOR) as QTDE_DIAS_VENDA,FUN_COD,FUN_NOM,@TOTALDIAS as TOTAL_DIAS_VENDA
+       		into #TempPivotVendedor
+       		from tabela3
+       	group by FUN_COD,FUN_NOM
+       
+       	select CASE WHEN d.FUN_DTD IS NOT NULL THEN 'INATIVO' ELSE ISNULL(e.FUN_NOM,'NAO SUPERVISIONADO') END as [SUP]
+                  ,isnull((convert(varchar(500),b.FUN_NOM) + ' - ' + convert(varchar(10),b.QTDE_DIAS_VENDA) + '/' + convert(varchar(10),b.TOTAL_DIAS_VENDA)),a.FUN_NOM) as FUN_NOM2
+       			,a.FUN_NOM as NOME
+                  ,(RIGHT(CONVERT(VARCHAR(10), PED_DTP, 105), 7))  as MESANO
+       			,a.*
+       			,b.*
+       	from #TempPivot a
+       	LEFT JOIN #TempPivotVendedor b ON a.FUN_COD = b.FUN_COD
+       	LEFT JOIN cad_fun d ON d.FUN_COD = a.FUN_COD
+       	LEFT JOIN cad_fun e ON e.FUN_COD = d.FUN_CFS
+             
+             union all
+             
+             	select CASE WHEN a.FUN_DTD IS NOT NULL THEN 'INATIVO' ELSE ISNULL(ISNULL(b.FUN_APL,b.FUN_NOM),'NAO SUPERVISIONADO') END as [SUP], a.FUN_NOM as FUN_NOM2, a.FUN_NOM, RIGHT(CONVERT(VARCHAR(10), GetDate(), 105), 7) as MESANO ,1 as MESANOATUAL,0 as POSSUIVALOR,0 as IPE_VTL
+             	,null as IPE_TPV,null as PED_COD,null as PED_CDI,null as EMP_COD,null as ORC_COD,null as CDP_COD,null as FCS_COD,null as FCV_COD,null as PED_TIP,null as TBP_COD,null as PED_DTA
+             	,null as PED_DTE,null as PED_DTP,null as PED_RAS,null as PED_REV,null as PED_IEV_RAS,null as PED_IEV_CNAB,null as PED_PRE,null as PED_DRP,null as PED_DER,null as PED_DTS,null as CLI_COD
+             	,null as CLI_CDS,null as CLI_CDC,null as VEI_COD,null as PPD_PPD,null as CLI_PDC,null as EDI_COD,null as FUN_COD,null as CLI_RAZ,null as CLI_FAN,null as CLI_TEL,null as CLI_CID,null as CLI_UF
+             	,null as REV_COD,null as TRP_COD,null as ID,null as PED_CES,null as PED_MDA,null as PED_MTC,null as PED_NF,null as PED_REV_DES,null as PED_MDE_DES,null as PED_STA_DES,null as IPE_TPV_DES
+             	,null as PED_LCS,null as PED_ORI,null as PED_QTI,null as PED_QTU,null as PED_VLT,null as PED_VTE,null as PED_VLC,null as PED_PDE,null as PED_VLD,null as PED_VLA,null as PED_VCR,null as PED_VLF
+             	,null as PED_VDF,null as PED_VPB,null as PED_ECB,null as PED_EET,null as PED_ECO,null as PED_IMP,null as PED_TPF,null as PED_DAP,null as PED_DTC,null as PED_DTF,null as PED_DUA,null as PED_DSP
+             	,null as TPP_DES,null as PED_OBS,null as PED_FNG,null as PED_VDE,null as PED_RTE,null as PED_MDE,null as USU_UUA,null as USU_LOG,null as USU_APR,null as USU_CNC,null as USU_USP,null as PED_URL
+             	,null as PED_IDP,null as EMP_NMR,null as FUN_NOM,null as TRP_RAZ,null as CLI_STA,null as CLI_VLP,null as GRP_DES,null as UNI_DES,null as DOC,null as ROTAS,null as CLI_KIN,null as CLI_QIK
+             	,null as CLI_TIK_DES,null as QTDE_DIAS_VENDA,null as FUN_COD,null as FUN_NOM,null as TOTAL_DIAS_VENDA 
+              from cad_fun a left JOIN cad_fun b on b.FUN_COD = a.FUN_CFS where a.FUN_COD not in (select b.FUN_COD from #TempPivot b GROUP by b.FUN_COD) and a.CAR_COD in (4,5,8,11)
     `);
 
     res.json({ recordset: result.recordset });
-
   } catch (err) {
-    console.error('SQL Error:', err);
-    res.status(500).json({
+    console.error('Erro ao executar a query no banco de dados:', err);
+    res.status(500).json({ 
       error: 'Falha ao executar a query no banco de dados.',
-      details: err.message
+      details: err.message 
     });
   }
 });
 
-app.listen(PORT, HOST, async () => {
+app.listen(PORT, HOST, () => {
   console.log(`🚀 API LEME-ME rodando em http://${HOST}:${PORT}`);
-  await connectWithRetry();
 });
