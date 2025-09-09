@@ -68,6 +68,7 @@ app.get('/status', async (req, res) => {
   }
 });
 
+// ENDPOINT CORRIGIDO PARA DADOS DO DASHBOARD
 app.get('/dashboard-data', async (req, res) => {
   try {
     const currentPool = await getPool();
@@ -130,6 +131,7 @@ app.get('/dashboard-data', async (req, res) => {
       SELECT * FROM #TempPivot;
     `);
 
+    // A resposta correta deve ser o 'recordset' do resultado
     res.json({ recordset: result.recordset });
 
   } catch (err) {
