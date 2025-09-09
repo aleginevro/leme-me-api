@@ -128,7 +128,7 @@ app.get('/dashboard-data', async (req, res) => {
       LEFT JOIN cad_cdp f ON f.CDP_COD = a.CDP_COD
       LEFT JOIN cad_tbp d ON d.TBP_COD = a.TBP_COD
       LEFT JOIN cad_grp gr ON gr.GRP_COD = e.GRP_COD
-      LEFT JOIN cad_ttp TTP ON TTP.TTP_COD = a.TTP_COD
+      LEFT JOIN cad_tpp TTP ON TTP.TTP_COD = a.TTP_COD -- Tabela corrigida de cad_ttp para cad_tpp
       WHERE a.PED_DTP >= DATEADD(DAY, -30, GETDATE())
       ORDER BY a.PED_DTP DESC
     `);
