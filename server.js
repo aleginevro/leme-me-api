@@ -1,3 +1,4 @@
+// server.js — LEME-ME API (VERSÃO CORRIGIDA E OTIMIZADA)
 const express = require('express');
 const sql = require('mssql');
 const cors = require('cors');
@@ -29,35 +30,20 @@ const dbConfig = {
     createTimeoutMillis: 30000
   },
   connectionTimeout: 60000,
-  requestTimeout: 120000 // 2 minutos
+  requestTimeout: 180000 // 3 minutos para queries longas
 };
 
 let pool = null;
 
-async function connectWithRetry(retries = 10, delayMs = 5000) {
-  for (let i = 1; i <= retries; i++) {
-    try {
-      pool = await sql.connect(dbConfig);
-      console.log('✅ DB conectado');
-      return pool;
-    } catch (err) {
-      console.error(`❌ Tentativa ${i} falhou: ${err.message}`);
-      if (i === retries) {
-        console.warn('⚠️ Não conectou ao DB; API segue online sem DB');
-        return null;
-      }
-      await new Promise(r => setTimeout(r, delayMs));
-    }
-  }
-}
-
 async function getPool() {
   if (pool && pool.connected) return pool;
   try {
+    console.log('🔄 Tentando (re)conectar ao DB...');
     pool = await sql.connect(dbConfig);
+    console.log('✅ Conexão com DB estabelecida.');
     return pool;
   } catch (err) {
-    console.error('Falha ao obter pool de conexão:', err.message);
+    console.error('❌ Falha ao obter pool de conexão:', err.message);
     return null;
   }
 }
@@ -84,7 +70,7 @@ app.get('/dashboard-data', async (req, res) => {
     }
 
     const request = currentPool.request();
-    request.timeout = 120000; // 2 minutos de timeout
+    request.timeout = 180000; // 3 minutos de timeout
 
     console.log('🔄 Iniciando execução da query...');
     const startTime = Date.now();
@@ -101,136 +87,88 @@ app.get('/dashboard-data', async (req, res) => {
             1                                                                                                   
             ELSE                                                                                                
             0                                                                                                   
-        END as MESANOATUAL                                                                                        
-        ,CASE WHEN isnull(CASE WHEN a.PED_REV = 10 THEN 0 WHEN a.PED_REV = 4 THEN 0 WHEN a.PED_REV = 9 THEN 0 ELSE g.IPE_VTL END,0) > 0  THEN 
+        END as MESANOATUAL,                                                                                        
+        CASE WHEN isnull(CASE WHEN a.PED_REV = 10 THEN 0 WHEN a.PED_REV = 4 THEN 0 WHEN a.PED_REV = 9 THEN 0 ELSE g.IPE_VTL END,0) > 0  THEN 
             1                                                                                                   
             ELSE                                                                                                
             0                                                                                                   
-        END as POSSUIVALOR                                                                                        
-        ,CASE WHEN a.PED_REV = 10 THEN 0 WHEN a.PED_REV = 4 THEN 0 WHEN a.PED_REV = 9 THEN 0 ELSE g.IPE_VTL END as IPE_VTL    
-        ,g.IPE_TPV                                                                                                
-        ,a.PED_COD                                                                                                
-        ,a.PED_CDI                                                                                                
-        ,CONVERT(date,a.PED_DTP) as [PED_DTP]                                                                     
-        ,a.PED_REV                                                                                                
-        ,a.CLI_COD                                                                                                
-        ,a.FUN_COD                                                                                                
-        ,a.CLI_RAZ                                                                                                
-        ,a.CLI_FAN                                                                                                
-        ,b.CLI_CID                                                                                                
-        ,b.CLI_UF                                                                                                 
-        ,a.TRP_COD                                                                                                
-        ,CASE WHEN a.PED_REV = 4 THEN 'Introdução Consignado'                                                     
-              WHEN a.PED_REV = 1 THEN 'Venda Avulsa'                                                                
-              WHEN a.PED_REV = 2 THEN 'Transferência'                                                               
-              WHEN a.PED_REV = 3 THEN 'Borra'                                                                       
-              WHEN a.PED_REV = 5 THEN 'Orçamento'                                                                   
-              WHEN a.PED_REV = 6 THEN 'Nota Fiscal Serviço'                                                         
-              WHEN a.PED_REV = 7 THEN 'Reposição'                                                                   
-              WHEN a.PED_REV = 8 THEN 'Indrodução Venda'                                                           
-              WHEN a.PED_REV = 9 THEN 'Complemento Consignação'                                                     
-              WHEN a.PED_REV = 10 THEN 'Indrodução Bonificada'                                                     
-        END as PED_REV_DES                                                                                        
-        , CASE WHEN a.PED_STA = 'PND' THEN 'Pendente'                                                             
-               WHEN a.PED_STA = 'APR' THEN 'Aprovado'                                                               
-               WHEN a.PED_STA = 'CNC' THEN 'Cancelado'                                                             
-               WHEN a.PED_STA = 'PRO' THEN 'Em Produção'                                                           
-               WHEN a.PED_STA = 'FAT' THEN 'Faturado'                                                               
-               WHEN a.PED_STA = 'ESP' THEN 'Em Separação'                                                          
-               WHEN a.PED_STA = 'SPC' THEN 'Separação Concluída'                                                    
-               WHEN a.PED_STA = 'FTP' THEN 'Faturado Parcial'                                                       
-            END as PED_STA_DES                                                                                    
-        ,c.FUN_NOM                                                                                                
-        ,d.TRP_RAZ                                                                                                
-        ,i.GRP_DES                                                                                                
-        ,j.UNI_DES                                                                                                
-        ,k.TPP_DES -- << A.TPP_DES ESTAVA FALTANDO AQUI
-        into #TempPivot                                                                                           
-        FROM cad_ped a WITH (NOLOCK)                                                                              
-             JOIN cad_cli b WITH (NOLOCK) on b.CLI_COD=a.CLI_COD                                                  
-        left JOIN cad_fun c WITH (NOLOCK) on c.FUN_COD=ISNULL(a.FUN_COD,b.FUN_COD)                                
-        left JOIN cad_trp d WITH (NOLOCK) on d.TRP_COD=a.TRP_COD                                                  
-             JOIN cad_ipe g WITH (NOLOCK) on g.PED_COD = a.PED_COD                                                
-             JOIN cad_prc h WITH (NOLOCK) on h.PRC_COD = g.PRC_COD                                                
-             JOIN cad_grp i WITH (NOLOCK) on i.GRP_COD = h.GRP_COD                                                
-             JOIN cad_uni j WITH (NOLOCK) on j.UNI_COD = g.UNI_COD                                                
-             LEFT JOIN cad_tpp k WITH (NOLOCK) on k.TPP_COD = a.TPP_COD -- << ESTA LINHA TAMBÉM É CRÍTICA PARA O TPP_DES
-       WHERE  a.PED_STA not in ('CNC','PRO')  
-         AND  CONVERT(varchar,a.PED_DTP,112) >= '20250101'
-         AND  CONVERT(varchar,a.PED_DTP,112) >= CONVERT(varchar,DATEADD(day, -30, GETDATE()),112); -- Só últimos 30 dias
-                                                                                                        
-       DECLARE @TOTALDIAS int;                                                                                        
-       SET @TOTALDIAS = (select count(distinct PED_DTP) from #TempPivot where RIGHT(CONVERT(VARCHAR(10), PED_DTP, 105), 7) = RIGHT(CONVERT(VARCHAR(10), GetDate(), 105), 7));
-                                                                                                        
-        ;With tabela3 AS                                                                                            
-        (                                                                                                   
-            select CASE WHEN sum(POSSUIVALOR) > 0 THEN 1                                                          
-                                                  ELSE 0                                                          
-                                      END as POSSUIVALOR                                                          
-                   ,FUN_NOM                                                                                         
-                   ,FUN_COD                                                                                         
-                   ,sum(IPE_VTL) as IPE_VTL                                                                         
-                   ,PED_DTP                                                                                         
-              from #TempPivot                                                                                       
-             where MESANOATUAL = 1                                                                                  
-             group by PED_DTP,FUN_COD,FUN_NOM                                                                       
-        )                                                                                                   
-        select sum(POSSUIVALOR) as QTDE_DIAS_VENDA,FUN_COD,FUN_NOM,@TOTALDIAS as TOTAL_DIAS_VENDA                    
-            into #TempPivotVendedor                                                                                
-            from tabela3                                                                                            
-        group by FUN_COD,FUN_NOM;                                                                                    
-                                                                                                        
-        select CASE WHEN d.FUN_DTD IS NOT NULL THEN 'INATIVO' ELSE ISNULL(e.FUN_NOM,'NAO SUPERVISIONADO') END as [SUP]
-                  ,a.FUN_NOM as NOME                                                                                  
-                  ,(RIGHT(CONVERT(VARCHAR(10), PED_DTP, 105), 7))  as MESANO                                       
-                ,a.MESANOATUAL
-                ,a.POSSUIVALOR
-                ,a.IPE_VTL
-                ,a.PED_COD
-                ,a.PED_DTP
-                ,a.PED_REV_DES
-                ,a.PED_STA_DES
-                ,a.FUN_NOM
-                ,a.GRP_DES
-                ,a.TPP_DES -- << ADICIONADO AQUI
-                ,b.QTDE_DIAS_VENDA
-                ,b.TOTAL_DIAS_VENDA
-        from #TempPivot a                                                                                          
-        LEFT JOIN #TempPivotVendedor b ON a.FUN_COD = b.FUN_COD                                                     
-        LEFT JOIN cad_fun d WITH (NOLOCK) ON d.FUN_COD = a.FUN_COD                                                                
-        LEFT JOIN cad_fun e WITH (NOLOCK) ON e.FUN_COD = d.FUN_CFS;                                                                
+        END as POSSUIVALOR,                                                                                        
+        CASE WHEN a.PED_REV = 10 THEN 0 WHEN a.PED_REV = 4 THEN 0 WHEN a.PED_REV = 9 THEN 0 ELSE g.IPE_VTL END as IPE_VTL,
+        h.TPP_DES,    
+        g.IPE_TPV,                                                                                                
+        a.PED_COD,                                                                                                
+        a.PED_CDI,                                                                                                
+        CONVERT(date,a.PED_DTP) as [PED_DTP],                                                                     
+        a.PED_REV,
+        f.PED_REV_DES,
+        a.PED_STA,
+        e.PED_STA_DES,                                                                                            
+        c.FUN_COD,
+        c.FUN_NOM,
+        b.CLI_RAZ,
+        b.CLI_FAN,
+        i.GRP_DES
+      INTO #TempPivot
+      from cad_ped a WITH (NOLOCK)
+      LEFT JOIN cad_cli b WITH (NOLOCK) ON a.CLI_COD = b.CLI_COD
+      LEFT JOIN cad_fun c WITH (NOLOCK) ON a.FUN_COD = c.FUN_COD
+      LEFT JOIN sta_ped e WITH (NOLOCK) ON a.PED_STA = e.PED_STA_COD
+      LEFT JOIN rev_ped f WITH (NOLOCK) ON a.PED_REV = f.PED_REV_COD
+      LEFT JOIN cad_ipe g WITH (NOLOCK) ON a.PED_COD = g.PED_COD AND g.EMP_COD = a.EMP_COD
+      LEFT JOIN cad_tpp h WITH (NOLOCK) ON g.TPP_COD = h.TPP_COD
+      LEFT JOIN cad_grp i WITH (NOLOCK) ON g.GRP_COD = i.GRP_COD
+      WHERE c.FUN_COD NOT IN (6,15,31,43,45,50,56)
+      AND c.FUN_SIT = 'A'
+      AND c.FUN_TFC IN (1,2)
+      AND a.PED_REV <> 10
+      AND CONVERT(varchar,a.PED_DTP,112) >= '20250101'
+      AND CONVERT(varchar,a.PED_DTP,112) >= CONVERT(varchar,DATEADD(day, -30, GETDATE()),112);
+      
+      SELECT FUN_COD, COUNT(DISTINCT PED_DTP) AS QTDE_DIAS_VENDA, SUM(IPE_VTL) AS TOTAL_DIAS_VENDA
+      INTO #TempPivotVendedor
+      FROM #TempPivot
+      WHERE POSSUIVALOR = 1
+      GROUP BY FUN_COD;
+      
+      select 
+        CASE WHEN d.FUN_DTD IS NOT NULL THEN 'INATIVO' ELSE ISNULL(e.FUN_NOM,'NAO SUPERVISIONADO') END as [SUP],
+        a.FUN_NOM as NOME,                                                                                  
+        (RIGHT(CONVERT(VARCHAR(10), PED_DTP, 105), 7)) as MESANO,                                       
+        a.MESANOATUAL,
+        a.POSSUIVALOR,
+        a.IPE_VTL,
+        a.PED_COD,
+        a.PED_DTP,
+        a.PED_REV_DES,
+        a.PED_STA_DES,
+        a.FUN_NOM,
+        a.GRP_DES,
+        a.TPP_DES, -- Adicionado para retornar ao frontend
+        b.QTDE_DIAS_VENDA,
+        b.TOTAL_DIAS_VENDA
+      from #TempPivot a                                                                                          
+      LEFT JOIN #TempPivotVendedor b ON a.FUN_COD = b.FUN_COD                                                     
+      LEFT JOIN cad_fun d WITH (NOLOCK) ON d.FUN_COD = a.FUN_COD                                                                
+      LEFT JOIN cad_fun e WITH (NOLOCK) ON e.FUN_COD = d.FUN_CFS;
 
-        DROP TABLE #TempPivot;
-        DROP TABLE #TempPivotVendedor;
+      DROP TABLE #TempPivot;
+      DROP TABLE #TempPivotVendedor;
     `);
 
     const endTime = Date.now();
     const executionTime = endTime - startTime;
-    console.log(`✅ Query executada com sucesso em ${executionTime}ms`);
-    console.log(`📊 Retornou ${result.recordset.length} registros`);
+    console.log(`✅ Query executada em ${executionTime} ms. Retornando ${result.recordset.length} registros.`);
 
-    res.json({ 
-      recordset: result.recordset,
-      executionTime: executionTime,
-      recordCount: result.recordset.length 
-    });
+    res.json({ recordset: result.recordset, executionTime });
+
   } catch (err) {
-    console.error('❌ Erro ao executar a query no banco de dados:', err);
-    res.status(500).json({ 
-      error: 'Falha ao executar a query no banco de dados.',
-      details: err.message 
-    });
+    console.error('❌ Erro Crítico no Endpoint /dashboard-data:', err);
+    res.status(500).json({ error: 'Erro interno do servidor ao processar a solicitação.', details: err.message });
   }
 });
 
-// Inicializa a conexão com retry e depois inicia o servidor
-connectWithRetry().then(() => {
+getPool().then(() => {
   app.listen(PORT, HOST, () => {
     console.log(`🚀 API LEME-ME rodando em http://${HOST}:${PORT}`);
   });
 });
-
-// A SEGUNDA CHAMADA app.listen() ABAIXO FOI REMOVIDA PARA EVITAR CONFLITOS.
-// app.listen(PORT, HOST, () => {
-//   console.log(`🚀 API LEME-ME rodando em http://${HOST}:${PORT}`);
-// });
