@@ -1,4 +1,3 @@
-// server.js — LEME-ME API (VERSÃO OTIMIZADA PARA PERFORMANCE)
 const express = require('express');
 const sql = require('mssql');
 const cors = require('cors');
@@ -145,6 +144,7 @@ app.get('/dashboard-data', async (req, res) => {
         ,d.TRP_RAZ                                                                                                
         ,i.GRP_DES                                                                                                
         ,j.UNI_DES                                                                                                
+        ,k.TPP_DES -- << A.TPP_DES ESTAVA FALTANDO AQUI
         into #TempPivot                                                                                           
         FROM cad_ped a WITH (NOLOCK)                                                                              
              JOIN cad_cli b WITH (NOLOCK) on b.CLI_COD=a.CLI_COD                                                  
@@ -154,6 +154,7 @@ app.get('/dashboard-data', async (req, res) => {
              JOIN cad_prc h WITH (NOLOCK) on h.PRC_COD = g.PRC_COD                                                
              JOIN cad_grp i WITH (NOLOCK) on i.GRP_COD = h.GRP_COD                                                
              JOIN cad_uni j WITH (NOLOCK) on j.UNI_COD = g.UNI_COD                                                
+             LEFT JOIN cad_tpp k WITH (NOLOCK) on k.TPP_COD = a.TPP_COD -- << ESTA LINHA TAMBÉM É CRÍTICA PARA O TPP_DES
        WHERE  a.PED_STA not in ('CNC','PRO')  
          AND  CONVERT(varchar,a.PED_DTP,112) >= '20250101'
          AND  CONVERT(varchar,a.PED_DTP,112) >= CONVERT(varchar,DATEADD(day, -30, GETDATE()),112); -- Só últimos 30 dias
@@ -191,6 +192,7 @@ app.get('/dashboard-data', async (req, res) => {
                 ,a.PED_STA_DES
                 ,a.FUN_NOM
                 ,a.GRP_DES
+                ,a.TPP_DES -- << ADICIONADO AQUI
                 ,b.QTDE_DIAS_VENDA
                 ,b.TOTAL_DIAS_VENDA
         from #TempPivot a                                                                                          
@@ -228,6 +230,7 @@ connectWithRetry().then(() => {
   });
 });
 
-app.listen(PORT, HOST, () => {
-  console.log(`🚀 API LEME-ME rodando em http://${HOST}:${PORT}`);
-});
+// A SEGUNDA CHAMADA app.listen() ABAIXO FOI REMOVIDA PARA EVITAR CONFLITOS.
+// app.listen(PORT, HOST, () => {
+//   console.log(`🚀 API LEME-ME rodando em http://${HOST}:${PORT}`);
+// });
