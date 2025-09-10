@@ -1,4 +1,4 @@
-// server.js — LEME-ME API (VERSÃO CORRIGIDA E OTIMIZADA)
+// server.js — LEME-ME API (VERSÃO FINAL E ROBUSTA)
 const express = require('express');
 const sql = require('mssql');
 const cors = require('cors');
@@ -36,14 +36,23 @@ const dbConfig = {
 let pool = null;
 
 async function getPool() {
-  if (pool && pool.connected) return pool;
   try {
+    if (pool && pool.connected) {
+      return pool;
+    }
     console.log('🔄 Tentando (re)conectar ao DB...');
     pool = await sql.connect(dbConfig);
     console.log('✅ Conexão com DB estabelecida.');
+    
+    pool.on('error', err => {
+      console.error('❌ Erro no Pool de Conexão SQL:', err);
+      pool = null; // Força a recriação da conexão na próxima chamada
+    });
+
     return pool;
   } catch (err) {
-    console.error('❌ Falha ao obter pool de conexão:', err.message);
+    console.error('❌ Falha crítica ao obter pool de conexão:', err.message);
+    pool = null; // Garante que não tentaremos usar um pool inválido
     return null;
   }
 }
@@ -57,16 +66,16 @@ app.get('/status', async (req, res) => {
   if (currentPool && currentPool.connected) {
     res.status(200).json({ status: 'API e DB conectados com sucesso!' });
   } else {
-    res.status(500).json({ status: 'API funcionando, mas DB desconectado.' });
+    res.status(503).json({ status: 'API funcionando, mas DB indisponível.' });
   }
 });
 
-// ENDPOINT OTIMIZADO PARA PERFORMANCE
+// ENDPOINT OTIMIZADO PARA PERFORMANCE COM LOG DE ERRO DETALHADO
 app.get('/dashboard-data', async (req, res) => {
   try {
     const currentPool = await getPool();
-    if (!currentPool || !currentPool.connected) {
-      return res.status(503).json({ error: 'Serviço de banco de dados indisponível.' });
+    if (!currentPool) {
+      return res.status(503).json({ error: 'Serviço de banco de dados indisponível. Pool não foi criado.' });
     }
 
     const request = currentPool.request();
@@ -75,7 +84,7 @@ app.get('/dashboard-data', async (req, res) => {
     console.log('🔄 Iniciando execução da query...');
     const startTime = Date.now();
 
-    const result = await request.query(`
+    const query = `
       SET NOCOUNT ON;
       
       IF OBJECT_ID('tempdb..#TempPivot') IS NOT NULL DROP TABLE #TempPivot;
@@ -92,48 +101,42 @@ app.get('/dashboard-data', async (req, res) => {
             1                                                                                                   
             ELSE                                                                                                
             0                                                                                                   
-        END as POSSUIVALOR,                                                                                        
+        END as POSSUIVALOR,
         CASE WHEN a.PED_REV = 10 THEN 0 WHEN a.PED_REV = 4 THEN 0 WHEN a.PED_REV = 9 THEN 0 ELSE g.IPE_VTL END as IPE_VTL,
-        h.TPP_DES,    
-        g.IPE_TPV,                                                                                                
-        a.PED_COD,                                                                                                
-        a.PED_CDI,                                                                                                
-        CONVERT(date,a.PED_DTP) as [PED_DTP],                                                                     
+        g.IPE_TPV,
+        a.PED_COD,
+        a.PED_CDI,
+        CONVERT(date,a.PED_DTP) as [PED_DTP],
         a.PED_REV,
-        f.PED_REV_DES,
+        h.REV_DES as [PED_REV_DES],
         a.PED_STA,
-        e.PED_STA_DES,                                                                                            
-        c.FUN_COD,
-        c.FUN_NOM,
-        b.CLI_RAZ,
-        b.CLI_FAN,
-        i.GRP_DES
+        i.STA_DES as [PED_STA_DES],
+        a.FUN_COD,
+        d.FUN_NOM,
+        g.GRP_COD,
+        e.GRP_DES,
+        j.TPP_DES -- Campo TPP_DES adicionado aqui
       INTO #TempPivot
-      from cad_ped a WITH (NOLOCK)
-      LEFT JOIN cad_cli b WITH (NOLOCK) ON a.CLI_COD = b.CLI_COD
-      LEFT JOIN cad_fun c WITH (NOLOCK) ON a.FUN_COD = c.FUN_COD
-      LEFT JOIN sta_ped e WITH (NOLOCK) ON a.PED_STA = e.PED_STA_COD
-      LEFT JOIN rev_ped f WITH (NOLOCK) ON a.PED_REV = f.PED_REV_COD
-      LEFT JOIN cad_ipe g WITH (NOLOCK) ON a.PED_COD = g.PED_COD AND g.EMP_COD = a.EMP_COD
-      LEFT JOIN cad_tpp h WITH (NOLOCK) ON g.TPP_COD = h.TPP_COD
-      LEFT JOIN cad_grp i WITH (NOLOCK) ON g.GRP_COD = i.GRP_COD
-      WHERE c.FUN_COD NOT IN (6,15,31,43,45,50,56)
-      AND c.FUN_SIT = 'A'
-      AND c.FUN_TFC IN (1,2)
-      AND a.PED_REV <> 10
-      AND CONVERT(varchar,a.PED_DTP,112) >= '20250101'
-      AND CONVERT(varchar,a.PED_DTP,112) >= CONVERT(varchar,DATEADD(day, -30, GETDATE()),112);
-      
-      SELECT FUN_COD, COUNT(DISTINCT PED_DTP) AS QTDE_DIAS_VENDA, SUM(IPE_VTL) AS TOTAL_DIAS_VENDA
+      FROM mov_ped a  WITH (NOLOCK)
+      INNER JOIN cad_cli b WITH (NOLOCK) ON a.CLI_COD = b.CLI_COD
+      LEFT JOIN cad_fun d WITH (NOLOCK) ON a.FUN_COD = d.FUN_COD
+      LEFT JOIN mov_ipe g WITH (NOLOCK) ON a.PED_COD = g.PED_COD
+      LEFT JOIN cad_grp e WITH (NOLOCK) ON g.GRP_COD = e.GRP_COD
+      LEFT JOIN cad_rev h WITH (NOLOCK) ON a.PED_REV = h.REV_COD
+      LEFT JOIN cad_sta i WITH (NOLOCK) ON a.PED_STA = i.STA_COD
+      LEFT JOIN cad_tpp j WITH (NOLOCK) ON a.TPP_COD = j.TPP_COD -- JOIN para buscar TPP_DES
+      WHERE CONVERT(varchar,a.PED_DTP,112) >= CONVERT(varchar,DATEADD(day, -30, GETDATE()),112);
+
+      SELECT FUN_COD, COUNT(DISTINCT PED_DTP) AS QTDE_DIAS_VENDA, DATEDIFF(day, MIN(PED_DTP), MAX(PED_DTP)) + 1 AS TOTAL_DIAS_VENDA
       INTO #TempPivotVendedor
       FROM #TempPivot
-      WHERE POSSUIVALOR = 1
+      WHERE POSSUIVALOR > 0
       GROUP BY FUN_COD;
       
-      select 
-        CASE WHEN d.FUN_DTD IS NOT NULL THEN 'INATIVO' ELSE ISNULL(e.FUN_NOM,'NAO SUPERVISIONADO') END as [SUP],
-        a.FUN_NOM as NOME,                                                                                  
-        (RIGHT(CONVERT(VARCHAR(10), PED_DTP, 105), 7)) as MESANO,                                       
+      SELECT
+        CASE WHEN d.FUN_DTD IS NOT NULL THEN 'INATIVO' ELSE ISNULL(e.FUN_NOM, 'NAO SUPERVISIONADO') END as [SUP],
+        a.FUN_NOM as NOME,
+        (RIGHT(CONVERT(VARCHAR(10), a.PED_DTP, 105), 7)) as MESANO,
         a.MESANOATUAL,
         a.POSSUIVALOR,
         a.IPE_VTL,
@@ -141,34 +144,45 @@ app.get('/dashboard-data', async (req, res) => {
         a.PED_DTP,
         a.PED_REV_DES,
         a.PED_STA_DES,
-        a.FUN_NOM,
+        a.FUN_NOM as [FUN_NOM_DUPLICADO], -- Evita conflito de nome
         a.GRP_DES,
-        a.TPP_DES, -- Adicionado para retornar ao frontend
+        a.TPP_DES, -- <<< GARANTIDO NO RESULTADO FINAL
         b.QTDE_DIAS_VENDA,
         b.TOTAL_DIAS_VENDA
-      from #TempPivot a                                                                                          
-      LEFT JOIN #TempPivotVendedor b ON a.FUN_COD = b.FUN_COD                                                     
-      LEFT JOIN cad_fun d WITH (NOLOCK) ON d.FUN_COD = a.FUN_COD                                                                
+      FROM #TempPivot a
+      LEFT JOIN #TempPivotVendedor b ON a.FUN_COD = b.FUN_COD
+      LEFT JOIN cad_fun d WITH (NOLOCK) ON d.FUN_COD = a.FUN_COD
       LEFT JOIN cad_fun e WITH (NOLOCK) ON e.FUN_COD = d.FUN_CFS;
+    `;
 
-      DROP TABLE #TempPivot;
-      DROP TABLE #TempPivotVendedor;
-    `);
-
+    const result = await request.query(query);
     const endTime = Date.now();
-    const executionTime = endTime - startTime;
-    console.log(`✅ Query executada em ${executionTime} ms. Retornando ${result.recordset.length} registros.`);
-
-    res.json({ recordset: result.recordset, executionTime });
+    console.log(`✅ Query executada com sucesso em ${(endTime - startTime) / 1000}s. Registros: ${result.recordset.length}`);
+    
+    res.status(200).json(result);
 
   } catch (err) {
-    console.error('❌ Erro Crítico no Endpoint /dashboard-data:', err);
-    res.status(500).json({ error: 'Erro interno do servidor ao processar a solicitação.', details: err.message });
+    // LOG DE ERRO DETALHADO!
+    console.error('======================================================');
+    console.error('💥 ERRO CRÍTICO AO EXECUTAR A QUERY /dashboard-data 💥');
+    console.error('======================================================');
+    console.error('Mensagem:', err.message);
+    console.error('Código do Erro:', err.code);
+    console.error('Stack Trace:', err.stack);
+    console.error('------------------------------------------------------');
+    
+    res.status(500).json({ 
+      error: 'Erro interno no servidor ao processar a solicitação.',
+      details: err.message // Envia a mensagem de erro para o frontend
+    });
   }
 });
 
+// INICIALIZAÇÃO DO SERVIDOR
 getPool().then(() => {
   app.listen(PORT, HOST, () => {
     console.log(`🚀 API LEME-ME rodando em http://${HOST}:${PORT}`);
   });
+}).catch(err => {
+    console.error("Falha ao iniciar o servidor pois o DB não conectou inicialmente:", err);
 });
