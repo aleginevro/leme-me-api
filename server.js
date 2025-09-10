@@ -160,7 +160,7 @@ app.get('/dashboard-data', async (req, res) => {
       JOIN cad_grp i WITH (NOLOCK) ON i.GRP_COD = h.GRP_COD
       JOIN cad_uni j WITH (NOLOCK) ON j.UNI_COD = g.UNI_COD
       WHERE a.PED_STA NOT IN ('CNC', 'PRO')  
-        AND CONVERT(VARCHAR, a.PED_DTP, 112) >= '20250101';
+        AND CONVERT(VARCHAR, a.PED_DTP, 112) >= '20250501';
 
       -- Criação da tabela temporária #TempPivotVendedor
       ;WITH tabela3 AS (
