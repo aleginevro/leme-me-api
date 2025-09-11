@@ -267,20 +267,7 @@ IF OBJECT_ID('tempdb..#TempPivot') IS NOT NULL DROP TABLE #TempPivot
        	from #TempPivot a																																	  
        	LEFT JOIN #TempPivotVendedor b ON a.FUN_COD = b.FUN_COD																							  
        	LEFT JOIN cad_fun d ON d.FUN_COD = a.FUN_COD																							  
-       	LEFT JOIN cad_fun e ON e.FUN_COD = d.FUN_CFS																							  
-				 
-             union all																								 
-             	select CASE WHEN a.FUN_DTD IS NOT NULL THEN 'INATIVO' ELSE ISNULL(ISNULL(b.FUN_APL,b.FUN_NOM),'NAO SUPERVISIONADO') END as [SUP], a.FUN_NOM as FUN_NOM2, a.FUN_NOM, RIGHT(CONVERT(VARCHAR(10), GetDate(), 105), 7) as MESANO ,1 as MESANOATUAL,0 as POSSUIVALOR,0 as IPE_VTL												 
-             	,null as IPE_TPV,null as PED_COD,null as PED_CDI,null as EMP_COD,null as ORC_COD,null as CDP_COD,null as FCS_COD,null as FCV_COD,null as PED_TIP,null as TBP_COD,null as PED_DTA				 
-             	,null as PED_DTE,null as PED_DTP,null as PED_RAS,null as PED_REV,null as PED_IEV_RAS,null as PED_IEV_CNAB,null as PED_PRE,null as PED_DRP,null as PED_DER,null as PED_DTS,null as CLI_COD		 
-             	,null as CLI_CDS,null as CLI_CDC,null as VEI_COD,null as PPD_PPD,null as CLI_PDC,null as EDI_COD,null as FUN_COD,null as CLI_RAZ,null as CLI_FAN,null as CLI_TEL,null as CLI_CID,null as CLI_UF	 
-             	,null as REV_COD,null as TRP_COD,null as ID,null as PED_CES,null as PED_MDA,null as PED_MTC,null as PED_NF,null as PED_REV_DES,null as PED_MDE_DES,null as PED_STA_DES,null as IPE_TPV_DES		 
-             	,null as PED_LCS,null as PED_ORI,null as PED_QTI,null as PED_QTU,null as PED_VLT,null as PED_VTE,null as PED_VLC,null as PED_PDE,null as PED_VLD,null as PED_VLA,null as PED_VCR,null as PED_VLF 
-             	,null as PED_VDF,null as PED_VPB,null as PED_ECB,null as PED_EET,null as PED_ECO,null as PED_IMP,null as PED_TPF,null as PED_DAP,null as PED_DTC,null as PED_DTF,null as PED_DUA,null as PED_DSP
-             	,null as TPP_DES,null as PED_OBS,null as PED_FNG,null as PED_VDE,null as PED_RTE,null as PED_MDE,null as USU_UUA,null as USU_LOG,null as USU_APR,null as USU_CNC,null as USU_USP,null as PED_URL
-             	,null as PED_IDP,null as EMP_NMR,null as FUN_NOM,null as TRP_RAZ,null as CLI_STA,null as CLI_VLP,null as GRP_DES,null as UNI_DES,null as DOC,null as ROTAS,null as CLI_KIN,null as CLI_QIK		
-             	,null as CLI_TIK_DES,null as QTDE_DIAS_VENDA,null as FUN_COD,null as FUN_NOM,null as TOTAL_DIAS_VENDA 
-              from cad_fun a left JOIN cad_fun b on b.FUN_COD = a.FUN_CFS where a.FUN_COD not in (select b.FUN_COD from #TempPivot b GROUP by b.FUN_COD) and a.CAR_COD in (4,5,8,11)
+       	LEFT JOIN cad_fun e ON e.FUN_COD = d.FUN_CFS
     `;
 
     const result = await request.query(query);
