@@ -8,11 +8,18 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 
+// *** MODIFICAÇÃO AQUI: CONFIGURAÇÃO EXPLÍCITA DO CORS ***
 app.use(cors({
-  origin: ['https://preview--sales-pulse-ee1f17bb.base44.app', 'https://base44.app'],
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  credentials: true // Se você usar cookies ou headers de autenticação
+  origin: [
+    'https://preview--sales-pulse-ee1f17bb.base44.app', // URL do seu preview Base44
+    'https://base44.app',                              // Domínio principal do Base44
+    'https://leme-me-api.onrender.com'                 // Adiciona a própria URL da API (por segurança)
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Adapte se usar outros métodos
+  credentials: true // Se você planeja usar cookies ou autenticação baseada em credenciais
 }));
+// ******************************************************
+
 
 app.use(express.json());
 
