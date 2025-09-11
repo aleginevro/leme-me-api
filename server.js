@@ -115,7 +115,8 @@ app.get('/dashboard-data', async (req, res) => {
         ,CONVERT(date,a.PED_DTP) as [PED_DTP]                                                                     
         ,a.PED_REV                                                                                                
         ,a.CLI_COD                                                                                                
-        ,a.FUN_COD                                                                                                
+        ,a.FUN_COD
+		,a.TPP_DES
         ,a.CLI_RAZ                                                                                                
         ,a.CLI_FAN                                                                                                
         ,b.CLI_CID                                                                                                
@@ -187,6 +188,10 @@ app.get('/dashboard-data', async (req, res) => {
                 ,a.IPE_VTL
                 ,a.PED_COD
                 ,a.PED_DTP
+		,a.CLI_FAN
+		,a.CLI_CID
+		,a.CLI_UF
+		,a.TPP_DES
                 ,a.PED_REV_DES
                 ,a.PED_STA_DES
                 ,a.FUN_NOM
