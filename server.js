@@ -8,7 +8,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 
-app.use(cors());
+app.use(cors({
+  origin: ['https://preview--sales-pulse-ee1f17bb.base44.app', 'https://base44.app'],
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  credentials: true // Se você usar cookies ou headers de autenticação
+}));
+
 app.use(express.json());
 
 const dbConfig = {
