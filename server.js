@@ -155,8 +155,8 @@ app.get('/dashboard-data', async (req, res) => {
              JOIN cad_grp i WITH (NOLOCK) on i.GRP_COD = h.GRP_COD                                                
              JOIN cad_uni j WITH (NOLOCK) on j.UNI_COD = g.UNI_COD                                                
        WHERE  a.PED_STA not in ('CNC','PRO')  
-         AND  CONVERT(varchar,a.PED_DTP,112) >= '20250101'
-         AND  CONVERT(varchar,a.PED_DTP,112) >= CONVERT(varchar,DATEADD(day, -30, GETDATE()),112); -- Só últimos 30 dias
+         AND  CONVERT(varchar,a.PED_DTP,112) >= '20250601'
+--         AND  CONVERT(varchar,a.PED_DTP,112) >= CONVERT(varchar,DATEADD(day, -30, GETDATE()),112); -- Só últimos 30 dias
                                                                                                         
        DECLARE @TOTALDIAS int;                                                                                        
        SET @TOTALDIAS = (select count(distinct PED_DTP) from #TempPivot where RIGHT(CONVERT(VARCHAR(10), PED_DTP, 105), 7) = RIGHT(CONVERT(VARCHAR(10), GetDate(), 105), 7));
