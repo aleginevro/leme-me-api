@@ -11,7 +11,9 @@ const HOST = '0.0.0.0';
 // *** MODIFICAÇÃO AQUI: CONFIGURAÇÃO EXPLÍCITA DO CORS ***
 app.use(cors({
   origin: [
+    'http://localhost:3000', // Para desenvolvimento local, se você usar
     'https://preview--sales-pulse-ee1f17bb.base44.app', // URL do seu preview Base44
+    'https://sales-pulse-ee1f17bb.base44.app', // <<--- ADICIONEI ESTA LINHA COM O URL DO SEU APP PUBLICADO
     'https://base44.app',                              // Domínio principal do Base44
     'https://leme-me-api.onrender.com'                 // Adiciona a própria URL da API (por segurança)
   ],
