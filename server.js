@@ -240,6 +240,140 @@ app.get('/dashboard-data', async (req, res) => {
   }
 });
 
+// NOVO ENDPOINT PARA LTV DATA
+app.get('/ltv-data', async (req, res) => {
+  try {
+    const currentPool = await getPool();
+    if (!currentPool || !currentPool.connected) {
+      return res.status(503).json({ error: 'Serviço de banco de dados indisponível.' });
+    }
+
+    const request = currentPool.request();
+    request.timeout = 120000; // 2 minutos de timeout
+
+    console.log('🔄 Iniciando execução da query de LTV...');
+    const startTime = Date.now();
+
+    const ltvQuery = `
+      SET NOCOUNT ON;
+      IF OBJECT_ID('tempdb..#IPE') IS NOT NULL DROP TABLE #IPE;
+      IF OBJECT_ID('tempdb..#Dias') IS NOT NULL DROP TABLE #Dias;
+
+      -- Temporária para itens de pedido
+      Select 
+          Cast(SUM(PRO_QTD) as int) as Totaltens,
+          Cast(SUM(Case When cad_ipe.ipe_tpv = 1 Then PRO_QTD else Null End) as int) as TotalItensVenda,
+          Cast(SUM(Case When cad_ipe.ipe_tpv = 2 Then PRO_QTD else Null End) as int) as TotalItensBoni,
+          Cast(SUM(Case When cad_ipe.ipe_tpv = 3 Then PRO_QTD else Null End) as int) as TotalItensTroca,
+          SUM(Case when cad_ped.ped_rev = 4 Then cad_ipe.ipe_vtl else null end) as ValorTotalItens,
+          cad_cli.CLI_COD
+          into #IPE
+          from cad_ipe 
+          Join cad_ped on cad_ipe.ped_cod = cad_ped.ped_cod
+          Join cad_cli on cad_cli.cli_cod = cad_ped.cli_cod
+          Where cad_ped.PED_STA = 'FAT'
+          group by cad_cli.cli_cod
+          -- ORDER BY cad_cli.CLI_COD -- ORDER BY não permitido em SELECT INTO para temp tables
+
+      -- Temporária para calcular meses do cliente
+      Select Distinct cli_cod, DATEDIFF(MONTH, Min(ped_Dtp), GETDATE()) AS Dias -- Renomeado para MesesAtivos
+      into #Dias
+      from cad_ped where ped_rev = 4
+      group by cli_cod;
+      
+      -- Consulta principal para o LTV
+      Select 
+          TEMP.CLI_RAZ,
+          TEMP.CLI_COD,
+          TEMP.CLI_KIN,
+          TEMP.TotalConsig,
+          TEMP.TotalRepo,
+          TEMP.Diff,
+          TEMP.TicketMedioRepo,
+          TEMP.NumConsig,
+          TEMP.NumRepo,
+          TEMP.TotalItensVenda,
+          TEMP.TotalItensBoni,
+          TEMP.TotalItensTroca,
+          TEMP.MesesConsig,
+          TEMP.FUN_NOM,
+          TEMP.CLI_STA_DES,
+          TEMP.Intervalo
+          From
+      (
+      Select 
+          cad_cli.CLI_RAZ,
+          cad_cli.CLI_COD,
+          cad_cli.CLI_KIN,
+          Case When Sum (Case When ped_rev = 4 Then Ped_Vlq Else 0 End) > 0 Then  
+              Sum (Case When ped_rev = 4 Then Ped_Vlq Else 0 End) 
+          Else
+              #IPE.ValorTotalItens
+          End
+              as TotalConsig,
+          Sum (Case 
+              When ped_rev = 7 Then Ped_Vlq
+              Else 0
+              End) as TotalRepo,
+          (Sum (Case When ped_rev = 4 Then Ped_Vlq Else 0 End) - Sum (Case When ped_rev = 7 Then Ped_Vlq Else 0 End)) as Diff, -- Adicionado Diff aqui
+          Count(case When ped_rev = 4 then 1 else null End) as NumConsig,
+          Count(case When ped_rev = 7 then 1 else null End) as NumRepo,
+          #IPE.TotalItensVenda,
+          #IPE.TotalItensBoni,
+          #IPE.TotalItensTroca,
+          MAX(#Dias.Dias) as MesesConsig,
+          cad_fun.FUN_NOM,
+          CASE cad_cli.CLI_STA WHEN 1 THEN 'Prospect' WHEN 2 THEN 'Ativo' WHEN 3 THEN 'Inativo' WHEN 4 THEN 'Bloqueado' END as [CLI_STA_DES], 
+          Iif (DATEDIFF(day,cad_cli.CLI_DUP, GETDATE())  <= 60, 1,iif( DATEDIFF(day,cad_cli.CLI_DUP,  GETDATE()) >= 61 And DATEDIFF(day,cad_cli.CLI_DUP, GETDATE()) <= 90 , 2, 3)) as [Intervalo],
+          CAST(
+            (Case When Sum (Case When ped_rev = 7 Then Ped_Vlq Else 0 End) > 0 Then Sum (Case When ped_rev = 7 Then Ped_Vlq Else 0 End) Else 0 End) /
+            (Case When Count(case When ped_rev = 7 then 1 else null End) > 0 Then Count(case When ped_rev = 7 then 1 else null End) Else 1 End) -- Evita divisão por zero
+            as Decimal(18,2)
+          ) as TicketMedioRepo -- Calculado aqui
+          From cad_ped
+          JOIN cad_cli on cad_cli.CLI_COD = cad_ped.CLI_COD
+          JOIN CAD_FUN on cad_fun.FUN_COD = cad_cli.FUN_COD
+          JOIN #Dias on #Dias.CLI_COD = cad_Ped.CLI_COD
+          Join #IPE on #IPE.cli_cod = cad_ped.cli_cod
+          Where cad_ped.Ped_Sta = 'FAT' 
+          Group By cad_cli.CLI_COD, cad_cli.CLI_RAZ, #IPE.TotalItensVenda, #IPE.TotalItensBoni, #IPE.TotalItensTroca,
+          cad_cli.CLI_KIN, #IPE.ValorTotalItens, cad_cli.cli_sta, cad_fun.fun_nom, cad_cli.CLI_DUP
+          Having (
+            Sum (Case 
+            When ped_rev = 4 Then Ped_Vlq
+            Else 0 
+            End
+            ) >= 0
+          )
+      ) as [TEMP]
+      order by TEMP.CLI_COD;
+
+      Drop table #IPE;
+      Drop Table #Dias;
+    `;
+
+    const result = await request.query(ltvQuery);
+
+    const endTime = Date.now();
+    const executionTime = endTime - startTime;
+    console.log(`✅ Query LTV executada com sucesso em ${executionTime}ms`);
+    console.log(`📊 Retornou ${result.recordset.length} registros para LTV`);
+
+    res.json({ 
+      recordset: result.recordset,
+      executionTime: executionTime,
+      recordCount: result.recordset.length 
+    });
+  } catch (err) {
+    console.error('❌ Erro ao executar a query de LTV no banco de dados:', err);
+    res.status(500).json({ 
+      error: 'Falha ao executar a query de LTV no banco de dados.',
+      details: err.message 
+    });
+  }
+});
+
+
 // Inicializa a conexão com retry e depois inicia o servidor
 connectWithRetry().then(() => {
   app.listen(PORT, HOST, () => {
