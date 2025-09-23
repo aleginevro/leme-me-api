@@ -204,7 +204,7 @@ app.get('/dashboard-data', async (req, res) => {
                 ,a.PED_COD
                 ,a.PED_DTP
 		,a.CLI_FAN
-                ,a.CLI_CID
+                ,a.CLI_DUP
 		,a.CLI_CID
 		,a.CLI_UF
 		,a.TPP_DES
