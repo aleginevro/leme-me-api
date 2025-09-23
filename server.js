@@ -288,6 +288,7 @@ app.get('/ltv-data', async (req, res) => {
           TEMP.CLI_RAZ,
           TEMP.CLI_COD,
           TEMP.CLI_KIN,
+          TEMP.CLI_DUP,
           TEMP.TotalConsig,
           TEMP.TotalRepo,
           TEMP.Diff,
