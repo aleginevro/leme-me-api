@@ -130,7 +130,7 @@ app.get('/dashboard-data', async (req, res) => {
         ,a.PED_REV                                                                                                
         ,a.CLI_COD                                                                                                
         ,a.FUN_COD
-		,a.TPP_DES
+	,a.TPP_DES
         ,a.CLI_RAZ                                                                                                
         ,a.CLI_FAN
         ,b.CLI_DUP                                                                                        
@@ -307,6 +307,7 @@ app.get('/ltv-data', async (req, res) => {
           cad_cli.CLI_RAZ,
           cad_cli.CLI_COD,
           cad_cli.CLI_KIN,
+          cad_cli.CLI_DUP,
           Case When Sum (Case When ped_rev = 4 Then Ped_Vlq Else 0 End) > 0 Then  
               Sum (Case When ped_rev = 4 Then Ped_Vlq Else 0 End) 
           Else
