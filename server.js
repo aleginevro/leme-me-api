@@ -357,46 +357,13 @@ app.get('/ltv-data', async (req, res) => {
     `;
 
     const result = await request.query(ltvQuery);
-
     const endTime = Date.now();
-    const executionTime = endTime - startTime;
-    console.log(`✅ Query LTV executada com sucesso em ${executionTime}ms`);
+    console.log(`✅ Query LTV executada com sucesso em ${endTime - startTime}ms`);
     console.log(`📊 Retornou ${result.recordset.length} registros para LTV`);
 
-    // --- ADICIONE ESTE BLOCO DE CÓDIGO TEMPORARIAMENTE ---
-    if (result.recordset.length > 0) {
-        console.log('--- INSPEÇÃO DETALHADA DOS PRIMEIROS REGISTROS DA QUERY LTV ---');
-        result.recordset.slice(0, 5).forEach((record, index) => {
-            console.log(`Registro ${index + 1}:`);
-            console.log(`  CLI_COD: ${record.CLI_COD}`);
-            console.log(`  CLI_RAZ: ${record.CLI_RAZ}`);
-            console.log(`  CLI_DUP (valor): ${record.CLI_DUP}`); // Exibe o valor
-            console.log(`  CLI_DUP (existe): ${record.hasOwnProperty('CLI_DUP')}`); // Verifica se a propriedade existe
-            console.log(`  CLI_DUP (tipo): ${typeof record.CLI_DUP}`); // Verifica o tipo
-        });
-        console.log('--- FIM DA INSPEÇÃO ---');
-    }
-    // -----------------------------------------------------
-
-
-    res.json({ 
-      recordset: result.recordset,
-      executionTime: executionTime,
-      recordCount: result.recordset.length 
-    });
+    res.json(result.recordset); // enviando diretamente o recordset
   } catch (err) {
-    console.error('❌ Erro ao executar a query de LTV no banco de dados:', err);
-    res.status(500).json({ 
-      error: 'Falha ao executar a query de LTV no banco de dados.',
-      details: err.message 
-    });
+    console.error('❌ Erro ao buscar dados de LTV:', err.message);
+    res.status(500).json({ error: 'Erro interno do servidor ao buscar dados de LTV.' });
   }
-});
-
-
-// Inicializa a conexão com retry e depois inicia o servidor
-connectWithRetry().then(() => {
-  app.listen(PORT, HOST, () => {
-    console.log(`🚀 API LEME-ME rodando em http://${HOST}:${PORT}`);
-  });
 });
