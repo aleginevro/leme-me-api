@@ -132,7 +132,8 @@ app.get('/dashboard-data', async (req, res) => {
         ,a.FUN_COD
 		,a.TPP_DES
         ,a.CLI_RAZ                                                                                                
-        ,a.CLI_FAN                                                                                                
+        ,a.CLI_FAN
+        ,b.CLI_DUP                                                                                        
         ,b.CLI_CID                                                                                                
         ,b.CLI_UF                                                                                                 
         ,a.TRP_COD                                                                                                
@@ -203,6 +204,7 @@ app.get('/dashboard-data', async (req, res) => {
                 ,a.PED_COD
                 ,a.PED_DTP
 		,a.CLI_FAN
+                ,a.CLI_CID
 		,a.CLI_CID
 		,a.CLI_UF
 		,a.TPP_DES
