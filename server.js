@@ -360,7 +360,7 @@ app.get('/ltv-data', async (req, res) => {
     console.log(`✅ Query LTV executada com sucesso em ${endTime - startTime}ms`);
     console.log(`📊 Retornou ${result.recordset.length} registros para LTV`);
 
-    res.json(result.recordset); // <--- ESTA LINHA PRECISA SER ALTERADA
+    res.json({ recordset: result.recordset }); // <--- LINHA CORRIGIDA!
   } catch (err) {
     console.error('❌ Erro ao buscar dados de LTV:', err.message);
     res.status(500).json({ error: 'Erro interno do servidor ao buscar dados de LTV.' });
