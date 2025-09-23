@@ -363,6 +363,22 @@ app.get('/ltv-data', async (req, res) => {
     console.log(`✅ Query LTV executada com sucesso em ${executionTime}ms`);
     console.log(`📊 Retornou ${result.recordset.length} registros para LTV`);
 
+    // --- ADICIONE ESTE BLOCO DE CÓDIGO TEMPORARIAMENTE ---
+    if (result.recordset.length > 0) {
+        console.log('--- INSPEÇÃO DETALHADA DOS PRIMEIROS REGISTROS DA QUERY LTV ---');
+        result.recordset.slice(0, 5).forEach((record, index) => {
+            console.log(`Registro ${index + 1}:`);
+            console.log(`  CLI_COD: ${record.CLI_COD}`);
+            console.log(`  CLI_RAZ: ${record.CLI_RAZ}`);
+            console.log(`  CLI_DUP (valor): ${record.CLI_DUP}`); // Exibe o valor
+            console.log(`  CLI_DUP (existe): ${record.hasOwnProperty('CLI_DUP')}`); // Verifica se a propriedade existe
+            console.log(`  CLI_DUP (tipo): ${typeof record.CLI_DUP}`); // Verifica o tipo
+        });
+        console.log('--- FIM DA INSPEÇÃO ---');
+    }
+    // -----------------------------------------------------
+
+
     res.json({ 
       recordset: result.recordset,
       executionTime: executionTime,
