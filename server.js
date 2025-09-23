@@ -90,7 +90,7 @@ app.get('/status', async (req, res) => {
   }
 });
 
-// ENDPOINT OTIMIZADO PARA PERFORMANCE
+// ENDPOINT OTIMIZADO PARA PERFORMANCE - DASHBOARD-DATA
 app.get('/dashboard-data', async (req, res) => {
   try {
     const currentPool = await getPool();
@@ -242,7 +242,7 @@ app.get('/dashboard-data', async (req, res) => {
   }
 });
 
-// NOVO ENDPOINT PARA LTV DATA
+// Endpoint ÚNICO para LTV Data
 app.get('/ltv-data', async (req, res) => {
   try {
     const currentPool = await getPool();
@@ -275,7 +275,6 @@ app.get('/ltv-data', async (req, res) => {
           Join cad_cli on cad_cli.cli_cod = cad_ped.cli_cod
           Where cad_ped.PED_STA = 'FAT'
           group by cad_cli.cli_cod
-          -- ORDER BY cad_cli.CLI_COD -- ORDER BY não permitido em SELECT INTO para temp tables
 
       -- Temporária para calcular meses do cliente
       Select Distinct cli_cod, DATEDIFF(MONTH, Min(ped_Dtp), GETDATE()) AS Dias -- Renomeado para MesesAtivos
@@ -319,7 +318,7 @@ app.get('/ltv-data', async (req, res) => {
               When ped_rev = 7 Then Ped_Vlq
               Else 0
               End) as TotalRepo,
-          (Sum (Case When ped_rev = 4 Then Ped_Vlq Else 0 End) - Sum (Case When ped_rev = 7 Then Ped_Vlq Else 0 End)) as Diff, -- Adicionado Diff aqui
+          (Sum (Case When ped_rev = 4 Then Ped_Vlq Else 0 End) - Sum (Case When ped_rev = 7 Then Ped_Vlq Else 0 End)) as Diff,
           Count(case When ped_rev = 4 then 1 else null End) as NumConsig,
           Count(case When ped_rev = 7 then 1 else null End) as NumRepo,
           #IPE.TotalItensVenda,
@@ -331,9 +330,9 @@ app.get('/ltv-data', async (req, res) => {
           Iif (DATEDIFF(day,cad_cli.CLI_DUP, GETDATE())  <= 60, 1,iif( DATEDIFF(day,cad_cli.CLI_DUP,  GETDATE()) >= 61 And DATEDIFF(day,cad_cli.CLI_DUP, GETDATE()) <= 90 , 2, 3)) as [Intervalo],
           CAST(
             (Case When Sum (Case When ped_rev = 7 Then Ped_Vlq Else 0 End) > 0 Then Sum (Case When ped_rev = 7 Then Ped_Vlq Else 0 End) Else 0 End) /
-            (Case When Count(case When ped_rev = 7 then 1 else null End) > 0 Then Count(case When ped_rev = 7 then 1 else null End) Else 1 End) -- Evita divisão por zero
+            (Case When Count(case When ped_rev = 7 then 1 else null End) > 0 Then Count(case When ped_rev = 7 then 1 else null End) Else 1 End)
             as Decimal(18,2)
-          ) as TicketMedioRepo -- Calculado aqui
+          ) as TicketMedioRepo
           From cad_ped
           JOIN cad_cli on cad_cli.CLI_COD = cad_ped.CLI_COD
           JOIN CAD_FUN on cad_fun.FUN_COD = cad_cli.FUN_COD
@@ -366,4 +365,11 @@ app.get('/ltv-data', async (req, res) => {
     console.error('❌ Erro ao buscar dados de LTV:', err.message);
     res.status(500).json({ error: 'Erro interno do servidor ao buscar dados de LTV.' });
   }
+});
+
+// Inicialize a conexão e inicie o servidor
+connectWithRetry().then(() => {
+  app.listen(PORT, HOST, () => {
+    console.log(`🚀 API LEME-ME rodando em http://${HOST}:${PORT}`);
+  });
 });
