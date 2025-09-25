@@ -367,6 +367,66 @@ app.get('/ltv-data', async (req, res) => {
   }
 });
 
+// NOVO ENDPOINT PARA CLIENTES SEM VENDAS (STATUS 2)
+app.get('/clientes-sem-venda', async (req, res) => {
+  try {
+    const currentPool = await getPool();
+    if (!currentPool || !currentPool.connected) {
+      return res.status(503).json({ error: 'Serviço de banco de dados indisponível.' });
+    }
+
+    const request = currentPool.request();
+    request.timeout = 120000; // 2 minutos de timeout
+
+    console.log('🔄 Iniciando execução da query de clientes sem vendas...');
+    const startTime = Date.now();
+
+    const clientesSemVendaQuery = `
+      SET NOCOUNT ON;
+      
+      SELECT 
+          cad_cli.CLI_COD, 
+          cad_gru.GRU_DES, 
+          cad_cli.CLI_FAN, 
+          cad_cli.CLI_EMA, 
+          cad_cli.CLI_TEL, 
+          cad_cli.CLI_CID,
+          cad_cli.CLI_UF, 
+          cad_fun.FUN_NOM as [VENDEDOR], 
+          sp.FUN_NOM as [SUP],
+          (
+              SELECT MAX(PED_DTP) 
+              FROM cad_ped 
+              WHERE cad_ped.CLI_COD = cad_cli.CLI_COD 
+              AND cad_ped.PED_STA = 'FAT'
+          ) as [ULTIMO_PEDIDO]
+      FROM cad_cli 
+      LEFT JOIN cad_fun    ON cad_fun.FUN_COD = cad_cli.FUN_COD
+           JOIN cad_gru    ON cad_gru.GRU_COD = cad_cli.GRU_COD
+      LEFT JOIN cad_fun sp ON sp.FUN_COD      = cad_fun.FUN_CFS
+      WHERE cad_cli.CLI_STA = 2
+      ORDER BY cad_cli.CLI_FAN;
+    `;
+
+    const result = await request.query(clientesSemVendaQuery);
+    const endTime = Date.now();
+    console.log(`✅ Query clientes sem vendas executada com sucesso em ${endTime - startTime}ms`);
+    console.log(`📊 Retornou ${result.recordset.length} clientes inativos (status 2)`);
+
+    res.json({ 
+      recordset: result.recordset,
+      executionTime: endTime - startTime,
+      recordCount: result.recordset.length 
+    });
+  } catch (err) {
+    console.error('❌ Erro ao buscar clientes sem vendas:', err.message);
+    res.status(500).json({ 
+      error: 'Erro interno do servidor ao buscar clientes sem vendas.',
+      details: err.message 
+    });
+  }
+});
+
 // Inicialize a conexão e inicie o servidor
 connectWithRetry().then(() => {
   app.listen(PORT, HOST, () => {
