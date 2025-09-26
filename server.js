@@ -394,12 +394,7 @@ app.get('/clientes-sem-venda', async (req, res) => {
           cad_cli.CLI_UF, 
           cad_fun.FUN_NOM as [VENDEDOR], 
           sp.FUN_NOM as [SUP],
-          (
-              SELECT MAX(PED_DTP) 
-              FROM cad_ped 
-              WHERE cad_ped.CLI_COD = cad_cli.CLI_COD 
-              AND cad_ped.PED_STA = 'FAT'
-          ) as [ULTIMO_PEDIDO]
+          cad_cli.CLI_DUP as [ULTIMO_PEDIDO]
       FROM cad_cli 
       LEFT JOIN cad_fun    ON cad_fun.FUN_COD = cad_cli.FUN_COD
            JOIN cad_gru    ON cad_gru.GRU_COD = cad_cli.GRU_COD
